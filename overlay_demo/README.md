@@ -4,4 +4,4 @@
 
 Show popup with incoming phone number and toast.
 
-[Sample incoming call popup](/docs/sample_incoming_call_popup.gif)
+![Sample incoming call popup](overlay_demo/docs/sample_incoming_call_popup.gif)
