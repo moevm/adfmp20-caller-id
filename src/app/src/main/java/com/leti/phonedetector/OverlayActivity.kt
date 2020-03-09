@@ -44,14 +44,14 @@ class OverlayActivity : Activity() {
         overlay_button_exit.setOnClickListener { finish() }
     }
 
-    @SuppressLint("ServiceCast")
+    @SuppressLint("ServiceCast", "Recycle")
     @RequiresApi(Build.VERSION_CODES.N)
     private fun setSpamSettings(){
         overlay_user_image.setImageResource(R.drawable.ic_spam)
         overlay_button_action.text = resources.getString(R.string.button_block_number)
 
 
-        Toast.makeText(this@OverlayActivity, "Number saved in clipboard", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this@OverlayActivity, "Number has been copied to clipboard", Toast.LENGTH_SHORT).show()
 
         overlay_button_action.setOnClickListener{
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -61,7 +61,7 @@ class OverlayActivity : Activity() {
 
             val telecomManager = this.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
             this.startActivity(telecomManager.createManageBlockedNumbersIntent(), null)
-            val c = contentResolver.query(
+            contentResolver.query(
                 BlockedNumbers.CONTENT_URI,
                 arrayOf(
                     BlockedNumbers.COLUMN_ID,

@@ -12,6 +12,7 @@ import android.provider.ContactsContract
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
+import com.leti.phonedetector.api.NeberitrubkuAPI
 import com.leti.phonedetector.database.PhoneLogDBHelper
 import java.text.SimpleDateFormat
 import java.util.*
@@ -19,7 +20,7 @@ import java.util.*
 
 class PhoneStateReceiver : BroadcastReceiver() {
     
-    @SuppressLint("UnsafeProtectedBroadcastReceiver")
+    @SuppressLint("UnsafeProtectedBroadcastReceiver", "SimpleDateFormat")
     override fun onReceive(context: Context, intent: Intent) {
 
         val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
@@ -48,21 +49,25 @@ class PhoneStateReceiver : BroadcastReceiver() {
             mIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             mIntent.addCategory(Intent.CATEGORY_LAUNCHER)
 
-            val date = SimpleDateFormat("dd.MM.yyyy").format(Date())
+            val date = SimpleDateFormat("yyyy.MM.dd").format(Date())
             val time = SimpleDateFormat("hh:mm:ss").format(Date())
-            
+
             val db = PhoneLogDBHelper(context)
             val foundUser : PhoneInfo? = db.findPhoneByNumber(incomingNumber)
 
-            var user: PhoneLogInfo
+            val user: PhoneLogInfo
 
-            user = if (foundUser != null) 
+            user = if (foundUser != null && !foundUser.isDefault())
                 PhoneLogInfo(foundUser, time, date)
             else{
-                if (contactName.isNotEmpty())
-                    PhoneLogInfo(number = incomingNumber, name=contactName, date=date, time = time)
-                else
+                val n_user = NeberitrubkuAPI(incomingNumber).getUser()
+
+                if (!n_user.isDefault()){
+                    PhoneLogInfo(n_user, time, date)
+                }
+                else {
                     PhoneLogInfo(number = incomingNumber, date=date, time=time)
+                }
             }
             
             when (state) {
@@ -70,7 +75,7 @@ class PhoneStateReceiver : BroadcastReceiver() {
                     Handler().postDelayed({
                         mIntent.putExtra("user", user.toPhoneInfo())
                         db.insertPhone(user)
-                        context.startActivity(mIntent) 
+                        context.startActivity(mIntent)
                     }, 200)
                 }
                 TelephonyManager.EXTRA_STATE_OFFHOOK -> {}
@@ -79,7 +84,7 @@ class PhoneStateReceiver : BroadcastReceiver() {
         }
     }
 
-    fun getContactName(phoneNumber: String?, context: Context): String? {
+    private fun getContactName(phoneNumber: String?, context: Context): String? {
         val uri = Uri.withAppendedPath(
             ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
             Uri.encode(phoneNumber)
