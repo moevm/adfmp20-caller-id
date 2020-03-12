@@ -1,8 +1,13 @@
 package com.leti.phonedetector
 
 import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -17,35 +22,23 @@ import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
 
 class MainActivity : AppCompatActivity() {
-
-    private val APP_PREFERENCES = "PHONEDETECTOR_PREFERENCES"
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var editor : SharedPreferences.Editor
     private lateinit var adapter : DataAdapter
 
     private val db = PhoneLogDBHelper(this)
 
-    // Sample of input data
-    // TODO get this from sqlite
-    val phones = arrayOf(PhoneLogInfo("Max", "+79992295999", false),
-        PhoneLogInfo("Сбербанк", "+79992295998", true, tags = arrayOf("Sberbank", "Постоянные звонки", "Мошенники")),
-        PhoneLogInfo("Pizza", "+79992295997", false),
-        PhoneLogInfo("Citron", "+79992295996", false))
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
-//        // Fill db
-//        val db = PhoneLogDBHelper(this)
-//        for (phone in phones){
-//            db.insertPhone(phone)
-//        }
+        //db.fillSampleData()
 
         createSharedPref()
         createRecycleView()
         createSwipeRefresh()
+        createChannel()
     }
 
     private fun createRecycleView(){
@@ -108,6 +101,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         return true
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        adapter.update(db.readPhoneLog())
+
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -180,5 +179,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun createChannel(){
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID, "Block number",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            channel.description = "Notify to add phone number to block list"
+            channel.enableLights(true)
+            channel.lightColor = Color.RED
+            channel.enableVibration(false)
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
 }

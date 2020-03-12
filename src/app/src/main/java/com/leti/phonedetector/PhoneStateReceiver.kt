@@ -10,24 +10,28 @@ import android.net.Uri
 import android.os.Handler
 import android.provider.ContactsContract
 import android.telephony.TelephonyManager
-import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.leti.phonedetector.api.NeberitrubkuAPI
 import com.leti.phonedetector.database.PhoneLogDBHelper
+import com.leti.phonedetector.model.PhoneInfo
+import com.leti.phonedetector.model.PhoneLogInfo
+import com.leti.phonedetector.notification.BlockNotification
 import java.text.SimpleDateFormat
 import java.util.*
 
 
 class PhoneStateReceiver : BroadcastReceiver() {
     
-    @SuppressLint("UnsafeProtectedBroadcastReceiver", "SimpleDateFormat")
+    @SuppressLint( "SimpleDateFormat")
     override fun onReceive(context: Context, intent: Intent) {
 
         val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
         val isRun = sharedPreferences.getBoolean("activate_phone_detection_switch",false)
         val notFindInContacts = sharedPreferences.getBoolean("disable_search_in_contacts_switch",false)
         val showEmptyUser = sharedPreferences.getBoolean("show_empty_user", false)
+        val isCreatePushUp = sharedPreferences.getBoolean("notification_switch", false)
+        val delayNotificationTime = sharedPreferences.getInt("time_notification", 1)
 
         if (!isRun) return
 
@@ -38,7 +42,6 @@ class PhoneStateReceiver : BroadcastReceiver() {
             TelephonyManager.EXTRA_STATE_RINGING -> {
                 Handler().postDelayed({
                     if (incomingNumber != null) {
-
                         if (notFindInContacts){
                             if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED){
                                 val contactName = getContactName(incomingNumber, context)
@@ -48,7 +51,7 @@ class PhoneStateReceiver : BroadcastReceiver() {
 
                         val user = startPhoneDetection(context, incomingNumber)
                         if (!user.toPhoneInfo().isDefault() || showEmptyUser) {
-                            val mIntent = createIntent(context, user)
+                            val mIntent = createIntent(context, user.toPhoneInfo(), false)
                             context.startActivity(mIntent)
                         }
 
@@ -56,11 +59,26 @@ class PhoneStateReceiver : BroadcastReceiver() {
                 }, 100)
             }
             TelephonyManager.EXTRA_STATE_OFFHOOK -> {}
-            TelephonyManager.EXTRA_STATE_IDLE -> {}
+            TelephonyManager.EXTRA_STATE_IDLE -> {
+                if (incomingNumber != null && isCreatePushUp){
+                    val user = findUserByPhone(context, incomingNumber)
+                    val intentOnPushUpClick = createIntent(context, user, true)
+                    if (user.isSpam)
+                        BlockNotification(context, intentOnPushUpClick, user).notify(delayNotificationTime)
+                }
+            }
         }
     }
 
-    private fun createIntent(context: Context, user: PhoneLogInfo) : Intent{
+    private fun findUserByPhone(context : Context, number : String) : PhoneInfo {
+        val db = PhoneLogDBHelper(context)
+        return db.findPhoneByNumber(number) ?: PhoneInfo(
+            number = number
+        )
+    }
+
+
+    private fun createIntent(context: Context, user: PhoneInfo, isDisplayButtons : Boolean) : Intent{
         val mIntent = Intent(context, OverlayActivity::class.java)
         mIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         mIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -68,15 +86,16 @@ class PhoneStateReceiver : BroadcastReceiver() {
         mIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         mIntent.addCategory(Intent.CATEGORY_LAUNCHER)
 
-        mIntent.putExtra("user", user.toPhoneInfo())
-        mIntent.putExtra("is_display_buttons", false)
+        mIntent.putExtra("user", user)
+        mIntent.putExtra("is_display_buttons", isDisplayButtons)
         return mIntent
     }
 
-    private fun startPhoneDetection(context: Context, incomingNumber : String) : PhoneLogInfo{
+    @SuppressLint("SimpleDateFormat")
+    private fun startPhoneDetection(context: Context, incomingNumber : String) : PhoneLogInfo {
 
         val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val timeout = sharedPreferences.getInt("detection_delay_seekbar",5)
+        val timeout = sharedPreferences.getInt("detection_delay_seekbar", 5)
         val isNetworkOnly = sharedPreferences.getBoolean("use_only_network_info",true)
 
         val db = PhoneLogDBHelper(context)
@@ -85,7 +104,6 @@ class PhoneStateReceiver : BroadcastReceiver() {
         val time = SimpleDateFormat("HH:mm:ss").format(Date())
 
         val user: PhoneLogInfo = if (isNetworkOnly){
-            Log.d("PHONEDETECTOR", "WAS HERE")
             findUserByNetwork(incomingNumber, timeout, time, date)
         }
         else{
@@ -101,7 +119,11 @@ class PhoneStateReceiver : BroadcastReceiver() {
                     foundUserNetwork
                 }
                 else {
-                    PhoneLogInfo(number=incomingNumber, date=date, time=time)
+                    PhoneLogInfo(
+                        number = incomingNumber,
+                        date = date,
+                        time = time
+                    )
                 }
             }
         }
@@ -110,10 +132,14 @@ class PhoneStateReceiver : BroadcastReceiver() {
         return user
     }
 
-    private fun findUserByNetwork(number : String, timeout : Int, time : String, date : String) : PhoneLogInfo{
+    private fun findUserByNetwork(number : String, timeout : Int, time : String, date : String) : PhoneLogInfo {
         val newUser = NeberitrubkuAPI(number, timeout).getUser()
         // TODO add here GetContact
-        return PhoneLogInfo(newUser, time=time, date=date)
+        return PhoneLogInfo(
+            newUser,
+            time = time,
+            date = date
+        )
     }
 
     private fun getContactName(phoneNumber: String?, context: Context): String? {
