@@ -5,12 +5,14 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat.checkSelfPermission
+import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
+import com.leti.phonedetector.database.PhoneLogDBHelper
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -37,12 +39,34 @@ class SettingsActivity : AppCompatActivity() {
 
         private lateinit var activatePhoneDetectionSwitch : SwitchPreferenceCompat
         private lateinit var disableSearchInContactsSwitch : SwitchPreferenceCompat
+        private lateinit var dropTables : Preference
+
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
             activatePhoneDetectionSwitch = preferenceScreen.findPreference("activate_phone_detection_switch")!!
             disableSearchInContactsSwitch = preferenceScreen.findPreference("disable_search_in_contacts_switch")!!
+            dropTables = preferenceScreen.findPreference("drop_table")!!
+
+            dropTables.setOnPreferenceClickListener {
+                val builder = AlertDialog.Builder(context!!)
+                builder.setTitle("Clean all log and phone information")
+                builder.setMessage("This action cannot be undone. Information from logs and all detected numbers will be deleted")
+
+                builder.setPositiveButton(android.R.string.yes) { _, _ ->
+                    val db = PhoneLogDBHelper(context!!)
+                    db.cleanTables()
+                    Toast.makeText(context,
+                        "Database was cleaned", Toast.LENGTH_SHORT).show()
+                }
+
+                builder.setNegativeButton(android.R.string.no) { _, _ ->}
+
+                builder.show()
+
+                return@setOnPreferenceClickListener true
+            }
 
             activatePhoneDetectionSwitch.setOnPreferenceClickListener {
                 if (activatePhoneDetectionSwitch.isChecked){
@@ -103,7 +127,6 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-            Log.d("CHECKER", "WAS HERE")
             if (requestCode == REQUEST_CODE_READ_CALL_LOG) {
                 val arrayList = checkCallLogPermissions()
                 if (arrayList.isNotEmpty()){

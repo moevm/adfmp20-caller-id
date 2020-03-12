@@ -26,12 +26,23 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         Log.d(LOG_TAG, "Call onUpgrade onCreate class PhoneLogDBHelper")
 
+        cleanTables(db)
+    }
+
+
+    private fun cleanTables(db: SQLiteDatabase){
         db.execSQL(drop_info)
         db.execSQL(drop_log)
         db.execSQL(drop_tags)
         db.execSQL(drop_tokens)
 
         onCreate(db)
+    }
+
+    fun cleanTables(){
+        val db = writableDatabase
+        cleanTables(db)
+        db.close()
     }
 
     override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -41,6 +52,13 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
     @Throws(SQLiteConstraintException::class)
     fun insertPhone(phone: PhoneLogInfo): Boolean {
         Log.d(LOG_TAG, "Call insertPhone with param PhoneLogInfo:${phone.number}")
+
+        val foundUser = this.findPhoneByNumber(phone.number)
+        Log.d(LOG_TAG, "Found user :${foundUser?.number}")
+
+        if (foundUser != null && foundUser.isDefault()){
+            this.deletePhoneInfo(phone.number)
+        }
 
         val db = writableDatabase
 
@@ -69,22 +87,26 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
     }
 
     @Throws(SQLiteConstraintException::class)
-    fun deletePhone(number: String): Boolean {
-        Log.d(LOG_TAG, "Call deletePhone with param number:$number")
+    fun deletePhoneInfo(number: String): Boolean {
+        Log.d(LOG_TAG, "Call deletePhoneInfo with param number:$number")
 
         val db = writableDatabase
-        val selectionArgs = arrayOf(number)
 
         // TODO SQL Injection
-        var selection = DBContract.PhoneInfoEntry.COLUMN_INFO_PHONE_NUMBER + " LIKE ?"
-        db.delete(DBContract.PhoneInfoEntry.TABLE_NAME, selection, selectionArgs)
+        db.execSQL("DELETE FROM ${DBContract.PhoneInfoEntry.TABLE_NAME} WHERE ${DBContract.PhoneInfoEntry.COLUMN_INFO_PHONE_NUMBER} = '$number'")
+        db.execSQL("DELETE FROM ${DBContract.PhoneLogTagsEntry.TABLE_NAME} WHERE ${DBContract.PhoneLogTagsEntry.COLUMN_PHONE_LOG_TAGS_NUMBER} = '$number'")
+        db.close()
+        return true
+    }
 
-        selection = DBContract.PhoneLogEntry.COLUMN_LOG_PHONE_NUMBER + " LIKE ?"
-        db.delete(DBContract.PhoneLogEntry.TABLE_NAME, selection, selectionArgs)
+    fun deletePhoneFull(number : String) : Boolean{
+        Log.d(LOG_TAG, "Call deletePhoneFull with param number:$number")
 
-        selection = DBContract.PhoneLogTagsEntry.COLUMN_PHONE_LOG_TAGS_NUMBER + " LIKE ?"
-        db.delete(DBContract.PhoneLogTagsEntry.TABLE_NAME, selection, selectionArgs)
+        this.deletePhoneInfo(number)
 
+        val db = writableDatabase
+        // TODO SQL Injection
+        db.execSQL("DELETE FROM ${DBContract.PhoneLogEntry.TABLE_NAME} WHERE ${DBContract.PhoneLogEntry.COLUMN_LOG_PHONE_NUMBER} = '$number'")
         db.close()
         return true
     }
@@ -198,7 +220,7 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
 
     fun findPhonesByQuery(query : String) : ArrayList<PhoneLogInfo>{
         // TODO SQL Injection
-        Log.d(LOG_TAG, "Call findPhonesByQuety with param query:$query")
+        Log.d(LOG_TAG, "Call findPhonesByQuery with param query:$query")
 
         val phones = ArrayList<PhoneLogInfo>()
         val db = readableDatabase

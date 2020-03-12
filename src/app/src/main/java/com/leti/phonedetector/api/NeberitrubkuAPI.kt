@@ -7,13 +7,12 @@ import com.leti.phonedetector.PhoneInfo
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 
-class NeberitrubkuAPI(number_ : String){
+class NeberitrubkuAPI(number_ : String, val timeout : Int){
     var number : String
     val url : String = "https://www.neberitrubku.ru/nomer-telefona/"
 
     init {
         number = convertPhoneToAPI(number_)
-
     }
 
     private fun convertPhoneToAPI(number: String) : String{
@@ -38,7 +37,7 @@ class NeberitrubkuAPI(number_ : String){
 
 
     fun findInfo() : PhoneInfo{
-        val doc = Jsoup.connect("https://www.neberitrubku.ru/nomer-telefona/$number").get()
+        val doc = Jsoup.connect("https://www.neberitrubku.ru/nomer-telefona/$number").timeout(timeout * 1000 + 1).get()
         val categories = doc.select("div.categories")
         val ratings = doc.select("div.ratings")
         val comments = doc.select("span.review_comment")
@@ -49,7 +48,8 @@ class NeberitrubkuAPI(number_ : String){
 
         val isSpam = rating?.contains("отриц") ?: false
 
-        val user = PhoneInfo(number=convertPhoneDefault(number), name="${name.toString()}: ${rating.toString()}", tags=tags, isSpam = isSpam)
+        val user = if (name == null || rating == null) PhoneInfo(number=convertPhoneDefault(number))
+        else PhoneInfo(number=convertPhoneDefault(number), name="$name: $rating", tags=tags, isSpam = isSpam)
 
         return user
     }
@@ -92,7 +92,7 @@ class NeberitrubkuAPI(number_ : String){
                 this@NeberitrubkuAPI.findInfo()
             } catch (e: Exception) {
                 Log.d("PHONEDETECTOR_VERBOSE", "Error on API: $e")
-                PhoneInfo()
+                PhoneInfo(number=convertPhoneDefault(number))
             }
         }
     }
