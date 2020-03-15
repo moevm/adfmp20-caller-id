@@ -27,23 +27,31 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
             PhoneLogInfo(
                 "Max",
                 "+79992295999",
-                false
+                false,
+                date = "2020.01.01",
+                time = "20:01"
             ),
             PhoneLogInfo(
                 "Сбербанк",
                 "+79992295998",
                 true,
-                tags = arrayOf("Sberbank", "Постоянные звонки", "Мошенники")
+                tags = arrayOf("Sberbank", "Постоянные звонки", "Мошенники"),
+                date = "2020.02.01",
+                time = "20:01"
             ),
             PhoneLogInfo(
                 "Pizza",
                 "+79992295997",
-                false
+                false,
+                date = "2020.01.01",
+                time = "20:02"
             ),
             PhoneLogInfo(
                 "Citron",
                 "+79992295996",
-                false
+                false,
+                date = "2020.02.01",
+                time = "10:01"
             )
         )
 
@@ -82,7 +90,7 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
         val foundUser = this.findPhoneByNumber(phone.number)
         Log.d(LOG_TAG_VERBOSE, "Found user: ${foundUser?.number}")
 
-        if (foundUser != null && foundUser.isDefault()){
+        if (foundUser != null){
             this.deletePhoneInfo(phone.number)
         }
 
@@ -120,6 +128,8 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
 
         // TODO SQL Injection
         db.execSQL("DELETE FROM ${DBContract.PhoneInfoEntry.TABLE_NAME} WHERE ${DBContract.PhoneInfoEntry.COLUMN_INFO_PHONE_NUMBER} = '$number'")
+
+        // TODO fix delete tags
         db.execSQL("DELETE FROM ${DBContract.PhoneLogTagsEntry.TABLE_NAME} WHERE ${DBContract.PhoneLogTagsEntry.COLUMN_PHONE_LOG_TAGS_NUMBER} = '$number'")
         db.close()
         return true
@@ -162,7 +172,7 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
         }
 
         catch (e : SQLiteConstraintException){
-            Log.d(LOG_TAG_ERROR, "Error in findTagsByPhone: $e")
+            Log.e(LOG_TAG_ERROR, "Error in findTagsByPhone: $e")
             db.execSQL(SQL_CREATE_ENTRIES)
             db.close()
             return tags
@@ -208,7 +218,7 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
             }
 
         } catch (e: SQLiteException) {
-            Log.d(LOG_TAG_ERROR, "Error in findPhoneByNumber: $e")
+            Log.e(LOG_TAG_ERROR, "Error in findPhoneByNumber: $e")
             db.execSQL(SQL_CREATE_ENTRIES)
             db.close()
             return null
@@ -229,7 +239,7 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
         try {
             // TODO fix sort
             val cursor = db.rawQuery("SELECT * FROM ${DBContract.PhoneLogEntry.TABLE_NAME} " +
-                    "ORDER BY ${DBContract.PhoneLogEntry.COLUMN_LOG_PHONE_DATE} DESC", null)
+                    "ORDER BY ${DBContract.PhoneLogEntry.COLUMN_LOG_PHONE_DATE} DESC, ${DBContract.PhoneLogEntry.COLUMN_LOG_PHONE_TIME} DESC", null)
 
             if (cursor!!.moveToFirst()) {
                 while (!cursor.isAfterLast) {
@@ -253,7 +263,7 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
             }
 
         } catch (e: SQLiteException) {
-            Log.d(LOG_TAG_ERROR, "Error in readPhoneLog: $e")
+            Log.e(LOG_TAG_ERROR, "Error in readPhoneLog: $e")
             db.execSQL(SQL_CREATE_ENTRIES)
             db.close()
             return phones
@@ -278,7 +288,8 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
                     "${DBContract.PhoneInfoEntry.TABLE_NAME}.${DBContract.PhoneLogEntry.COLUMN_LOG_PHONE_NUMBER} == " +
                     "${DBContract.PhoneLogEntry.TABLE_NAME}.${DBContract.PhoneInfoEntry.COLUMN_INFO_PHONE_NUMBER} WHERE " +
                     "${DBContract.PhoneInfoEntry.TABLE_NAME}.${DBContract.PhoneInfoEntry.COLUMN_INFO_PHONE_NUMBER} LIKE \"%${query}%\" " +
-                    "OR ${DBContract.PhoneInfoEntry.TABLE_NAME}.${DBContract.PhoneInfoEntry.COLUMN_INFO_PHONE_NAME} LIKE \"%${query}%\"", null)
+                    "OR ${DBContract.PhoneInfoEntry.TABLE_NAME}.${DBContract.PhoneInfoEntry.COLUMN_INFO_PHONE_NAME} LIKE \"%${query}%\" " +
+                    "ORDER BY ${DBContract.PhoneLogEntry.COLUMN_LOG_PHONE_DATE} DESC, ${DBContract.PhoneLogEntry.COLUMN_LOG_PHONE_TIME} DESC", null)
 
             if (cursor!!.moveToFirst()) {
                 while (!cursor.isAfterLast) {
@@ -308,7 +319,7 @@ class PhoneLogDBHelper(val context: Context) : SQLiteOpenHelper(context, DATABAS
             }
 
         } catch (e: SQLiteException) {
-            Log.d(LOG_TAG_ERROR, "Error in findPhoneByNumber: $e")
+            Log.e(LOG_TAG_ERROR, "Error in findPhoneByNumber: $e")
             db.execSQL(SQL_CREATE_ENTRIES)
             db.close()
             return phones

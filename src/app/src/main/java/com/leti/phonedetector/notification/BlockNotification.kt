@@ -5,18 +5,21 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.leti.phonedetector.CHANNEL_ID
+import com.leti.phonedetector.R
 import com.leti.phonedetector.model.PhoneInfo
 
 class BlockNotification(private val context: Context, private val intent : Intent, private val user : PhoneInfo) {
 
-    private fun createNotification() : Notification {
+    fun createNotification() : Notification {
         val snoozePendingIntent = PendingIntent.getActivity(context, System.currentTimeMillis().toInt(), intent, 0)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID).apply {
-            setSmallIcon(android.R.drawable.alert_dark_frame)
+            setSmallIcon(R.drawable.ic_notification_icon)
+            setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
             setContentTitle("Don't forget to block incoming number")
             setContentText("${user.number} - ${user.name}")
             setContentIntent(snoozePendingIntent)
