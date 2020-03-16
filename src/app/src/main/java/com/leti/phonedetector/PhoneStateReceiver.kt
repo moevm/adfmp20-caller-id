@@ -50,13 +50,13 @@ class PhoneStateReceiver : BroadcastReceiver() {
 
                         val user = startPhoneDetection(context, formattedIncoming)
                         if (!user.toPhoneInfo().isDefault() || showEmptyUser) {
-                            val mIntent = createIntent(context, user.toPhoneInfo(), false)
+                            val mIntentEnabledButtons = createIntent(context, user.toPhoneInfo(), false)
+                            context.startActivity(mIntentEnabledButtons)
 
                             if (isShowNotificationInsteadOfPopup){
+                                val mIntent = createIntent(context, user.toPhoneInfo(), true)
                                 IncomingNotification(context, mIntent, user.toPhoneInfo()).notifyNow()
                             }
-                            context.startActivity(mIntent)
-
                         }
                     }
                 }, 100)
@@ -110,6 +110,7 @@ class PhoneStateReceiver : BroadcastReceiver() {
         val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
         val timeout = sharedPreferences.getInt("detection_delay_seekbar", 5)
         val isNetworkOnly = sharedPreferences.getBoolean("use_only_network_info",false)
+        val noCacheEmpty = sharedPreferences.getBoolean("no_cache_empty_phones", false)
 
         val db = PhoneLogDBHelper(context)
 
@@ -141,7 +142,8 @@ class PhoneStateReceiver : BroadcastReceiver() {
             }
         }
 
-        db.insertPhone(user)
+        if (!noCacheEmpty || !user.isDefault())
+            db.insertPhone(user)
         return user
     }
 
