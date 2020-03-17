@@ -59,7 +59,7 @@ class Requester(val context: Context, var token : Token, val timeout : Int) {
     }
 
     private fun preparePayload(data: MutableMap<String, String>): String {
-        return JSONObject(data.toString().replace("[ ~]".toRegex(), "")).toString()
+        return JSONObject(data as Map<*, *>).toString().replace("[ ~]".toRegex(), "")
     }
 
     private fun sendPost(url : String, data : String) : Pair<Boolean, String> {
@@ -85,12 +85,12 @@ class Requester(val context: Context, var token : Token, val timeout : Int) {
         return when (response.statusCode){
             200 -> Pair(true, JSONObject(response.data.toString(Charset.defaultCharset())).getString("data"))
             201 -> Pair(true, response.data.toString(Charset.defaultCharset()))
-            403, 404 -> Pair(false, response.data.toString())
+            404 -> Pair(false, response.data.toString())
             else -> {
                 val responseText = JSONObject(response.data.toString(Charset.defaultCharset())).getString("data")
                 val responseDecrypted = cipherAES.decryptAESWithBase64(responseText.toString())
                 val errorCode = JSONObject(responseDecrypted).getJSONObject("meta").getString("errorCode")
-                Log.d(LOG_TAG_VERBOSE, "Error in parseResponse: $errorCode")
+                Log.d(LOG_TAG_VERBOSE, "Error in parseResponse: $errorCode, $responseDecrypted")
 
                 // TODO captcha bypass
                 when(errorCode){
@@ -106,7 +106,7 @@ class Requester(val context: Context, var token : Token, val timeout : Int) {
 
     private fun sendReqToTheServer(url : String, payload : MutableMap<String, String>, noEncryption : Boolean=false) : String{
         val payloadPrepared = preparePayload(payload)
-        Log.d(LOG_TAG_VERBOSE,"Payload: $payloadPrepared, $payload, $timestamp")
+        Log.d(LOG_TAG_VERBOSE,"Payload: $payloadPrepared, $timestamp")
         headers["X-Req-Signature"] = cipherAES.createSignature(payloadPrepared, timestamp)
 
         val (isOk, response) = if (noEncryption){ sendRequestNoEncrypted(url, payloadPrepared) }
