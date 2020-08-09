@@ -1,5 +1,6 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="@color/colorBackground">
 
     <PreferenceCategory app:title="@string/messages_header">
 
@@ -14,6 +15,12 @@
             app:defaultValue="Off"
             app:summary="@string/search_in_contacts_description"
             app:title="@string/search_in_contacts" />
+
+        <SwitchPreferenceCompat
+            app:key="make_call_on_swipe"
+            app:defaultValue="Off"
+            app:summary="@string/make_call_on_swipe_text"
+            app:title="@string/make_call_on_swipe" />
 
     </PreferenceCategory>
 
@@ -40,6 +47,14 @@
             app:summary="@string/use_neberitrubku_description"
             app:title="@string/use_neberitrubku" />
 
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/theme_header">
+        <SwitchPreferenceCompat
+            app:key="dark_mode"
+            app:defaultValue="false"
+            app:summary="@string/dark_mode_description"
+            app:title="@string/dark_mode" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/notification_header">

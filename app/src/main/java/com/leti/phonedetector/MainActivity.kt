@@ -1,5 +1,6 @@
 package com.leti.phonedetector
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.NotificationChannel
@@ -7,21 +8,29 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode
 import androidx.appcompat.widget.SearchView
+import androidx.core.app.ActivityCompat
+import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.leti.phonedetector.database.PhoneLogDBHelper
 import com.leti.phonedetector.model.PhoneLogInfo
 import com.leti.phonedetector.overlay.OverlayCreator
 import com.leti.phonedetector.search.Search
+import com.tsuryo.swipeablerv.SwipeLeftRightCallback
+import com.tsuryo.swipeablerv.SwipeableRecyclerView
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
 
@@ -35,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var editor : SharedPreferences.Editor
     private lateinit var adapter : DataAdapter
+    private lateinit var phones: ArrayList<PhoneLogInfo>
 
     private val db = PhoneLogDBHelper(this)
 
@@ -44,7 +54,7 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
 
         //db.fillSampleData()
-
+        setTheme()
         createSharedPref()
         createRecycleView()
         createSwipeRefresh()
@@ -55,12 +65,46 @@ class MainActivity : AppCompatActivity() {
         /**
          * Create RecycleView with list of phone call activity of user
          */
-        val recyclerView = findViewById<View>(R.id.list_of_phones) as RecyclerView
-        adapter = DataAdapter(this, db.readPhoneLog())
+        val recyclerView = findViewById<View>(R.id.list_of_phones) as SwipeableRecyclerView
+        phones = db.readPhoneLog()
+        adapter = DataAdapter(this, phones)
 
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.itemAnimator = DefaultItemAnimator()
+
+        recyclerView.setListener(object : SwipeLeftRightCallback.Listener {
+            override fun onSwipedLeft(position: Int) {
+                db.deleteByPhoneInfo(phones[position])
+                phones = db.readPhoneLog()
+                adapter.update(phones)
+                adapter.notifyDataSetChanged()
+            }
+
+            override fun onSwipedRight(position: Int) {
+                val sharedPreferencesGlobal = PreferenceManager.getDefaultSharedPreferences(this@MainActivity)
+                val canCall = sharedPreferencesGlobal.getBoolean("make_call_on_swipe",false)
+                if (canCall){
+                    val intent =
+                        Intent(Intent.ACTION_CALL, Uri.parse("tel:" + phones[position].number))
+                    if (ActivityCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.CALL_PHONE
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        Toast.makeText(this@MainActivity,
+                            "Permission not granted. Can't call :(", Toast.LENGTH_SHORT).show()
+                        return
+                    } else {
+                        startActivity(intent)
+                    }
+                } else {
+                    Toast.makeText(this@MainActivity,
+                        "Disabled. Change settings.", Toast.LENGTH_SHORT).show()
+                }
+                adapter.notifyDataSetChanged()
+            }
+        })
     }
 
     @SuppressLint("CommitPrefEdits")
@@ -71,7 +115,8 @@ class MainActivity : AppCompatActivity() {
          */
         sharedPreferences = getSharedPreferences(APP_PREFERENCES, MODE_PRIVATE)
         editor = sharedPreferences.edit()
-
+        editor.putBoolean("is_use_query", false)
+        editor.apply()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -88,6 +133,7 @@ class MainActivity : AppCompatActivity() {
         val mSearch = menu.findItem(R.id.action_search)
         val mSearchView = mSearch.actionView as SearchView
         mSearchView.queryHint = "Search"
+        mSearchView.setMaxWidth(Integer.MAX_VALUE);
         mSearchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String): Boolean {
                 mSearchView.clearFocus()
@@ -105,7 +151,8 @@ class MainActivity : AppCompatActivity() {
                         val mIntentEnabledButtons = overlayCreator.createIntent(phone.toPhoneInfo(), true)
                         applicationContext.startActivity(mIntentEnabledButtons)
 
-                        adapter.update(db.findPhonesByQuery(query))
+                        phones = db.findPhonesByQuery(query)
+                        adapter.update(phones)
                         dialog.dismiss()
                     }
 
@@ -125,11 +172,13 @@ class MainActivity : AppCompatActivity() {
                     editor.putBoolean("is_use_query", true)
                     editor.putString("last_query", newText)
                     editor.apply()
-                    adapter.update(db.findPhonesByQuery(newText))
+                    phones = db.findPhonesByQuery(newText)
+                    adapter.update(phones)
                 } else{
                     editor.putBoolean("is_use_query", false)
                     editor.apply()
-                    adapter.update(db.readPhoneLog())
+                    phones = db.readPhoneLog()
+                    adapter.update(phones)
                 }
 
                 return true
@@ -148,7 +197,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onRestart() {
         super.onRestart()
-        adapter.update(db.readPhoneLog())
+        phones = db.readPhoneLog()
+        adapter.update(phones)
 
     }
 
@@ -187,10 +237,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateRecycleView(){
         if (sharedPreferences.getBoolean("is_use_query", false)){
-            adapter.update(db.findPhonesByQuery(sharedPreferences.getString("last_query", "*").toString()))
+            phones = db.findPhonesByQuery(sharedPreferences.getString("last_query", "*").toString())
+            adapter.update(phones)
         }
         else {
-            adapter.update(db.readPhoneLog())
+            phones = db.readPhoneLog()
+            adapter.update(phones)
         }
     }
 
@@ -244,5 +296,19 @@ class MainActivity : AppCompatActivity() {
             channel.enableVibration(false)
             notificationManager.createNotificationChannel(channel)
         }
+    }
+
+    private fun setTheme(){
+        val sharedPreferencesGlobal = PreferenceManager.getDefaultSharedPreferences(this@MainActivity)
+        val isDarkMode = sharedPreferencesGlobal.getBoolean("dark_mode", false)
+
+        if (isDarkMode){
+            setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES;
+        } else {
+            setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_NO;
+        }
+        delegate.applyDayNight()
     }
 }

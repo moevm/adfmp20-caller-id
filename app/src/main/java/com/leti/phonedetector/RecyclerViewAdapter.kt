@@ -5,7 +5,12 @@ import android.graphics.BitmapFactory
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.*
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
 import com.leti.phonedetector.model.DEFAULT_IMAGE
@@ -18,6 +23,8 @@ internal class DataAdapter(val context: Context, private var phones: ArrayList<P
     val APP_PREFERENCES = "PHONEDETECTOR_PREFERENCES"
     private var sharedPreferences: SharedPreferences
     private val inflater: LayoutInflater = LayoutInflater.from(context)
+
+    private var lastPosition = -1
 
     init{
         sharedPreferences = context.getSharedPreferences(APP_PREFERENCES, AppCompatActivity.MODE_PRIVATE)
@@ -37,12 +44,21 @@ internal class DataAdapter(val context: Context, private var phones: ArrayList<P
         }
         holder.nameView.text = if (phone.name.length < 25) phone.name else phone.name.take(25) + "..."
         holder.numberView.text = phone.number
-        holder.timeView.text = phone.time
+        holder.timeView.text = phone.time.take(2 + 1 + 2)
         holder.dateView.text = phone.date
         if (phone.image != DEFAULT_IMAGE) holder.imageView.setImageBitmap(BitmapFactory.decodeFile(phone.image))
 
         holder.initClick(phone)
+        setAnimation(holder.itemView, position);
+    }
 
+    private fun setAnimation(viewToAnimate: View, position: Int) {
+        if (position > lastPosition) {
+            val animation: Animation =
+                AnimationUtils.loadAnimation(context, android.R.anim.slide_in_left)
+            viewToAnimate.startAnimation(animation)
+            lastPosition = position
+        }
     }
 
     override fun getItemCount(): Int {
@@ -71,7 +87,6 @@ internal class DataAdapter(val context: Context, private var phones: ArrayList<P
         internal val imageView: ImageView = view.findViewById(R.id.log_element_user_image) as ImageView
         internal val nameView: TextView = view.findViewById(R.id.log_element_text_name) as TextView
         internal val numberView: TextView = view.findViewById(R.id.log_element_text_number) as TextView
-        internal val checkBox: CheckBox = view.findViewById(R.id.checkbox_) as CheckBox
         private val logLayout : LinearLayout = view.findViewById(R.id.log_layout) as LinearLayout
         internal val timeView : TextView = view.findViewById(R.id.log_element_text_time) as TextView
         internal val dateView : TextView = view.findViewById(R.id.log_element_text_date) as TextView
